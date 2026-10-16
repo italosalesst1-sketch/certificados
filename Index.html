@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Verificação de Certificados — G.A.E.</title>
+<style>
+:root{--azul:#0B2A6F;--azul2:#143C94;--verm:#C8102E;--ouro:#C9A227;--ouro2:#E8CB6A;--bg:#F3F5FA;--txt:#1B2233;--mut:#5B6478;--ok:#1B7F3B;--warn:#B45309;}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--txt);line-height:1.45}
+header{background:linear-gradient(135deg,var(--azul),var(--azul2));color:#fff;border-bottom:4px solid var(--ouro)}
+header::after{content:"";display:block;height:5px;background:var(--verm)}
+.top{max-width:720px;margin:0 auto;padding:16px;display:flex;gap:14px;align-items:center}
+.top svg{width:54px;height:54px;flex:none}
+.top h1{font-size:18px;margin:0;letter-spacing:.3px}
+.top p{margin:2px 0 0;font-size:12.5px;color:var(--ouro2)}
+main{max-width:720px;margin:0 auto;padding:16px}
+.card{background:#fff;border-radius:14px;padding:18px;box-shadow:0 2px 10px rgba(11,42,111,.10);border-top:3px solid var(--ouro)}
+h2{margin:0 0 6px;font-size:19px;color:var(--azul)}
+.sub{margin:0 0 14px;color:var(--mut);font-size:14px}
+label{display:block;font-size:13px;font-weight:600;margin:12px 0 4px;color:var(--azul)}
+input{width:100%;font:inherit;padding:12px;border:1.5px solid #CBD2E1;border-radius:10px;background:#fff;color:var(--txt)}
+input:focus{outline:none;border-color:var(--azul2);box-shadow:0 0 0 3px rgba(20,60,148,.15)}
+button{font:inherit;font-weight:700;border:0;border-radius:10px;padding:12px 16px;cursor:pointer;background:var(--azul);color:#fff;width:100%;margin-top:14px}
+button:disabled{opacity:.6}
+.res{margin-top:16px}
+.rbox{border-radius:12px;padding:16px;border:2px solid}
+.rbox.ok{border-color:var(--ok);background:#F0FAF3}
+.rbox.warn{border-color:var(--warn);background:#FFF8EC}
+.rbox.bad{border-color:var(--verm);background:#FFF1F3}
+.rtit{display:flex;gap:10px;align-items:center;font-size:20px;font-weight:800;margin-bottom:8px}
+.ok .rtit{color:var(--ok)}.warn .rtit{color:var(--warn)}.bad .rtit{color:var(--verm)}
+.ico{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:19px;flex:none}
+.ok .ico{background:var(--ok)}.warn .ico{background:var(--warn)}.bad .ico{background:var(--verm)}
+.row{display:flex;flex-direction:column;padding:8px 0;border-top:1px solid rgba(0,0,0,.08)}
+.row .k{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
+.row .v{font-size:16px;font-weight:600;word-break:break-word}
+.msg{font-size:14px;margin:4px 0 0}
+.load{color:var(--mut);font-size:14px;padding:8px 0}
+footer{text-align:center;font-size:12px;color:var(--mut);padding:8px 16px 28px}
+</style>
+</head>
+<body>
+<header><div class="top">
+  <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 4 56 12v18c0 15-10 26-24 30C18 56 8 45 8 30V12z" fill="#C8102E" stroke="#C9A227" stroke-width="3"/><text x="32" y="39" text-anchor="middle" font-size="17" font-weight="800" fill="#fff" font-family="Arial,sans-serif">GAE</text></svg>
+  <div><h1>G.A.E. — Grupo de Atendimento Emergencial</h1><p>Verificação oficial de certificados</p></div>
+</div></header>
+
+<main>
+  <div class="card">
+    <h2>Verificar certificado</h2>
+    <p class="sub">Digite o número de registro impresso no certificado ou escaneie o QR Code.</p>
+    <form id="f" autocomplete="off">
+      <label for="cod">Número de registro</label>
+      <input id="cod" placeholder="Ex.: 0001-2026-K7Q2M" autocapitalize="characters" maxlength="32">
+      <button id="b" type="submit">Verificar</button>
+    </form>
+    <div id="res" class="res"></div>
+  </div>
+</main>
+<footer>© G.A.E. — Grupo de Atendimento Emergencial. Verificação realizada em base de dados oficial.</footer>
+
+<script>
+// Endereço do Apps Script (implantação /exec). Só mude se criar uma nova implantação.
+const API_URL = 'https://script.google.com/macros/s/AKfycbzIuiRlF_LRd3FliAnOah0EnyXeFblVwKz0fJX_x3P5q-v8bAAU1uPRN3zk4iY13Eff_w/exec';
+
+const $ = function (id) { return document.getElementById(id); };
+function h(tag, cls, txt) { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; }
+function fmtData(s) { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s || ''); return m ? m[3] + '/' + m[2] + '/' + m[1] : (s || '—'); }
+function linha(box, k, v) { const r = h('div', 'row'); r.append(h('span', 'k', k), h('span', 'v', v)); box.append(r); }
+
+function mostrar(r) {
+  const el = $('res'); el.innerHTML = '';
+  const cfg = {
+    valido: ['✔', 'Certificado válido', 'ok'],
+    cancelado: ['✖', 'Certificado cancelado', 'warn'],
+    nao_encontrado: ['!', 'Certificado não encontrado', 'bad']
+  }[r.status] || ['!', 'Certificado não encontrado', 'bad'];
+  const box = h('div', 'rbox ' + cfg[2]);
+  const t = h('div', 'rtit'); t.append(h('span', 'ico', cfg[0]), h('span', '', cfg[1])); box.append(t);
+  if (r.status === 'nao_encontrado') {
+    box.append(h('p', 'msg', 'Nenhum registro corresponde ao número "' + (r.registro || '') + '". Confira se o código foi digitado corretamente. Em caso de dúvida, entre em contato com o G.A.E.'));
+  } else {
+    linha(box, 'Registro', r.registro);
+    linha(box, 'Participante', r.nome);
+    linha(box, 'Curso', r.curso);
+    linha(box, 'Carga horária', r.carga + ' horas');
+    linha(box, 'Data de emissão', fmtData(r.data));
+    if (r.status === 'cancelado') {
+      linha(box, 'Cancelado em', fmtData(r.canceladoEm));
+      box.append(h('p', 'msg', 'Este certificado foi cancelado e não possui validade.'));
+    }
+  }
+  el.append(box);
+}
+
+function erro(msg) {
+  const el = $('res'); el.innerHTML = '';
+  const box = h('div', 'rbox bad');
+  const t = h('div', 'rtit'); t.append(h('span', 'ico', '!'), h('span', '', 'Não foi possível consultar')); box.append(t);
+  box.append(h('p', 'msg', msg));
+  el.append(box);
+}
+
+function consultar(cod) {
+  cod = (cod || '').trim();
+  if (!cod) return;
+  const b = $('b'); b.disabled = true; b.textContent = 'Consultando...';
+  $('res').innerHTML = ''; $('res').append(h('div', 'load', 'Consultando a base de dados...'));
+  fetch(API_URL + '?api=verificar&c=' + encodeURIComponent(cod))
+    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(mostrar)
+    .catch(function () { erro('Verifique sua conexão e tente novamente em alguns instantes.'); })
+    .then(function () { b.disabled = false; b.textContent = 'Verificar'; });
+}
+
+$('f').onsubmit = function (ev) { ev.preventDefault(); consultar($('cod').value); };
+
+(function () {
+  const c = new URLSearchParams(location.search).get('c');
+  if (c) { $('cod').value = c.slice(0, 32); consultar(c); }
+})();
+</script>
+</body>
+</html>
